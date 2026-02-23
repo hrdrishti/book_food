@@ -5,7 +5,7 @@
 // ============================================================
 
 /*  ▼▼▼ PASTE YOUR GOOGLE SHEET ID HERE ▼▼▼  */
-var SHEET_ID = "1Vzg24qhxg858tPeYjUvGtX0xVwupeFZvq-mNCX3fS4w";
+var SHEET_ID = "1XfMdle9aWXbIuYWB1Abl6eZGolK8TMbj7vYXNY-oWB0";
 var SHEET_NAME = "Bookings";
 
 // ============================================================
@@ -485,3 +485,4 @@ function getCurrentTimeString() {
   var d = new Date();
   return Utilities.formatDate(d, Session.getScriptTimeZone(), "HH:mm");
 }
+
