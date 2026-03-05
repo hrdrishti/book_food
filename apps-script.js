@@ -206,22 +206,9 @@ function doGet(e) {
       try {
         var menuSheet = getMenuSheet();
         var item = JSON.parse(params.data);
-        if (!item.name) return jsonResponse({ success: false, error: "Name is required" });
-
-        // Auto-Generate ID (M1, M2...)
-        var menuRows = getMenuData(menuSheet);
-        var maxIdNum = 0;
-        menuRows.forEach(function (r) {
-          var m = String(r.id).match(/^M(\d+)$/i);
-          if (m) {
-            var n = parseInt(m[1], 10);
-            if (n > maxIdNum) maxIdNum = n;
-          }
-        });
-        var newId = "M" + (maxIdNum + 1);
-
-        menuSheet.appendRow([newId, item.name, item.desc || "", Number(item.price) || 0, item.icon || "🍽️", item.cat || "mains", item.veg === "true" || item.veg === true ? true : false]);
-        return jsonResponse({ success: true, newId: newId });
+        if (!item.id || !item.name) return jsonResponse({ success: false, error: "id and name required" });
+        menuSheet.appendRow([item.id, item.name, item.desc || "", Number(item.price) || 0, item.icon || "🍽️", item.cat || "mains", item.veg === "true" || item.veg === true ? true : false]);
+        return jsonResponse({ success: true });
       } finally { lock.releaseLock(); }
     }
 
@@ -263,22 +250,9 @@ function doGet(e) {
       try {
         var tablesSheet = getTablesSheet();
         var tbl = JSON.parse(params.data);
-        if (!tbl.name) return jsonResponse({ success: false, error: "Name is required" });
-
-        // Auto-Generate ID (T1, T2...)
-        var tableRows = getTablesData(tablesSheet);
-        var maxIdNum = 0;
-        tableRows.forEach(function (r) {
-          var m = String(r.id).match(/^T(\d+)$/i);
-          if (m) {
-            var n = parseInt(m[1], 10);
-            if (n > maxIdNum) maxIdNum = n;
-          }
-        });
-        var newId = "T" + (maxIdNum + 1);
-
-        tablesSheet.appendRow([newId, tbl.name, Number(tbl.cap) || 2, tbl.icon || "🪑"]);
-        return jsonResponse({ success: true, newId: newId });
+        if (!tbl.id || !tbl.name) return jsonResponse({ success: false, error: "id and name required" });
+        tablesSheet.appendRow([Number(tbl.id), tbl.name, Number(tbl.cap) || 2, tbl.status || "Available", tbl.icon || "🪑"]);
+        return jsonResponse({ success: true });
       } finally { lock.releaseLock(); }
     }
 
@@ -288,9 +262,9 @@ function doGet(e) {
       try {
         var tablesSheet = getTablesSheet();
         var tbl = JSON.parse(params.data);
-        var rowIdx = getTableRowById(tablesSheet, String(tbl.id).trim());
+        var rowIdx = getTableRowById(tablesSheet, tbl.id);
         if (rowIdx === -1) return jsonResponse({ success: false, error: "Table not found" });
-        tablesSheet.getRange(rowIdx, 1, 1, 4).setValues([[String(tbl.id).trim(), tbl.name, Number(tbl.cap) || 2, tbl.icon || "🪑"]]);
+        tablesSheet.getRange(rowIdx, 1, 1, 5).setValues([[Number(tbl.id), tbl.name, Number(tbl.cap) || 2, tbl.status || "Available", tbl.icon || "🪑"]]);
         return jsonResponse({ success: true });
       } finally { lock.releaseLock(); }
     }
@@ -407,7 +381,7 @@ function getMenuData(sheet) {
 }
 
 /* ---- Tables Sheet helpers ---- */
-var TABLES_HEADERS = ["id", "name", "cap", "icon"];
+var TABLES_HEADERS = ["id", "name", "cap", "status", "icon"];
 
 function getTablesSheet() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -427,9 +401,9 @@ function getTablesData(sheet) {
   return data.map(function (row) {
     var obj = {};
     TABLES_HEADERS.forEach(function (h, i) { obj[h] = row[i]; });
-    // Keep ID as string to allow "T1", "T2" etc.
-    obj["id"] = String(obj["id"]).trim();
+    obj["id"] = Number(obj["id"]) || 0;
     obj["cap"] = Number(obj["cap"]) || 2;
+    obj["status"] = obj["status"] || "Available";
     return obj;
   }).filter(function (r) { return r["id"] && r["name"]; });
 }

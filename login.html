@@ -69,52 +69,20 @@
                 <button class="login-tab" id="tabAdmin" onclick="switchRole('admin')">🛡️ Admin</button>
             </div>
 
-            <!-- USER LOGIN PANEL -->
-            <div class="login-panel active" id="userLoginPanel">
-                <div class="form-group" style="text-align:left;">
-                    <label class="form-label">Phone Number</label>
-                    <input type="tel" id="userMobile" class="form-input" placeholder="+91 XXXXX XXXXX" />
-                </div>
-                <div class="form-group" style="text-align:left;">
-                    <label class="form-label">Password</label>
-                    <input type="password" id="userPass" class="form-input" placeholder="••••••••"
-                        onkeydown="if(event.key==='Enter')userLogin()" />
-                </div>
-                <div class="error-msg" id="userLoginError"></div>
-                <button onclick="userLogin()" class="btn btn-primary" id="btnUserLogin"
-                    style="width:100%;margin-top:.6rem;">
-                    Sign In →
-                </button>
-                <div style="margin-top:1.5rem;font-size:.8rem;color:var(--ink-60);">
-                    New here? <a href="#" onclick="switchPanel('register')"
-                        style="color:var(--amber-dark);font-weight:700;">Create an account</a>
-                </div>
-            </div>
-
-            <!-- USER REGISTRATION PANEL -->
-            <div class="login-panel" id="registerPanel">
+            <!-- GUEST PANEL -->
+            <div class="login-panel active" id="guestPanel">
                 <div class="form-group" style="text-align:left;">
                     <label class="form-label">Full Name</label>
-                    <input type="text" id="regName" class="form-input" placeholder="Your name" />
+                    <input type="text" id="guestName" class="form-input" placeholder="Your name" />
                 </div>
                 <div class="form-group" style="text-align:left;">
-                    <label class="form-label">Phone Number</label>
-                    <input type="tel" id="regMobile" class="form-input" placeholder="+91 XXXXX XXXXX" />
+                    <label class="form-label">Mobile Number</label>
+                    <input type="tel" id="guestMobile" class="form-input" placeholder="+91 XXXXX XXXXX" />
                 </div>
-                <div class="form-group" style="text-align:left;">
-                    <label class="form-label">Password</label>
-                    <input type="password" id="regPass" class="form-input" placeholder="Create a password"
-                        onkeydown="if(event.key==='Enter')userRegister()" />
-                </div>
-                <div class="error-msg" id="registerError"></div>
-                <button onclick="userRegister()" class="btn btn-primary" id="btnRegister"
-                    style="width:100%;margin-top:.6rem;">
-                    Create Account →
+                <div class="error-msg" id="guestError"></div>
+                <button onclick="guestLogin()" class="btn btn-primary" style="width:100%;margin-top:.6rem;">
+                    Continue →
                 </button>
-                <div style="margin-top:1.5rem;font-size:.8rem;color:var(--ink-60);">
-                    Already have an account? <a href="#" onclick="switchPanel('login')"
-                        style="color:var(--amber-dark);font-weight:700;">Sign in here</a>
-                </div>
             </div>
 
             <!-- ADMIN PANEL -->
@@ -131,7 +99,7 @@
                 <div class="error-msg" id="adminError"></div>
                 <button onclick="adminLogin()" class="btn btn-primary"
                     style="width:100%;margin-top:.6rem;background:var(--ink);">
-                    Admin Login →
+                    Sign In →
                 </button>
             </div>
 
@@ -141,7 +109,6 @@
     </div>
 
     <script>
-        const SHEET_URL = "https://script.google.com/macros/s/AKfycbxVa7y4qFx9wVVTmON9SIad3h_4GQFsfzVQ68TyN9iTywfu3mvAQOVsOIjkJGXv4YA/exec";
         const SESSION_KEY = "sg_session";
         const ADMIN_USER = "admin";
         const ADMIN_PASS = "admin123";
@@ -157,92 +124,21 @@
             document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.login-panel').forEach(p => p.classList.remove('active'));
             document.getElementById(role === 'guest' ? 'tabGuest' : 'tabAdmin').classList.add('active');
-
-            if (role === 'guest') {
-                document.getElementById('userLoginPanel').classList.add('active');
-            } else {
-                document.getElementById('adminPanel').classList.add('active');
-            }
-            clearErrors();
+            document.getElementById(role === 'guest' ? 'guestPanel' : 'adminPanel').classList.add('active');
+            document.getElementById(role === 'guest' ? 'guestError' : 'adminError').textContent = '';
         }
 
-        function switchPanel(panel) {
-            document.querySelectorAll('.login-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById(panel === 'register' ? 'registerPanel' : 'userLoginPanel').classList.add('active');
-            clearErrors();
-        }
-
-        function clearErrors() {
-            document.getElementById('userLoginError').textContent = '';
-            document.getElementById('registerError').textContent = '';
-            document.getElementById('adminError').textContent = '';
-        }
-
-        function userLogin() {
-            const mobile = document.getElementById("userMobile").value.trim();
-            const pass = document.getElementById("userPass").value;
-            const err = document.getElementById("userLoginError");
-            const btn = document.getElementById("btnUserLogin");
-
-            if (!mobile || !pass) { err.textContent = "Mobile and Password are required."; return; }
-
+        function guestLogin() {
+            const name = document.getElementById("guestName").value.trim();
+            const mobile = document.getElementById("guestMobile").value.trim();
+            const err = document.getElementById("guestError");
+            if (!name) { err.textContent = "Please enter your name."; return; }
+            if (!mobile) { err.textContent = "Please enter your mobile number."; return; }
             err.textContent = '';
-            btn.disabled = true;
-            btn.textContent = 'Verifying...';
-
-            fetch(`${SHEET_URL}?action=login&mobile=${encodeURIComponent(mobile)}&password=${encodeURIComponent(pass)}`)
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        sessionStorage.setItem(SESSION_KEY, "guest");
-                        sessionStorage.setItem("sg_name", d.name);
-                        sessionStorage.setItem("sg_mobile", d.mobile);
-                        window.location.href = "choice.html";
-                    } else {
-                        err.textContent = d.error || "Invalid mobile or password.";
-                        btn.disabled = false;
-                        btn.textContent = 'Sign In →';
-                    }
-                })
-                .catch(e => {
-                    err.textContent = "Network error. Please try again.";
-                    btn.disabled = false;
-                    btn.textContent = 'Sign In →';
-                });
-        }
-
-        function userRegister() {
-            const name = document.getElementById("regName").value.trim();
-            const mobile = document.getElementById("regMobile").value.trim();
-            const pass = document.getElementById("regPass").value;
-            const err = document.getElementById("registerError");
-            const btn = document.getElementById("btnRegister");
-
-            if (!name || !mobile || !pass) { err.textContent = "All fields are required."; return; }
-
-            err.textContent = '';
-            btn.disabled = true;
-            btn.textContent = 'Creating Account...';
-
-            fetch(`${SHEET_URL}?action=register&name=${encodeURIComponent(name)}&mobile=${encodeURIComponent(mobile)}&password=${encodeURIComponent(pass)}`)
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        sessionStorage.setItem(SESSION_KEY, "guest");
-                        sessionStorage.setItem("sg_name", d.name);
-                        sessionStorage.setItem("sg_mobile", d.mobile);
-                        window.location.href = "choice.html";
-                    } else {
-                        err.textContent = d.error || "Registration failed.";
-                        btn.disabled = false;
-                        btn.textContent = 'Create Account →';
-                    }
-                })
-                .catch(e => {
-                    err.textContent = "Network error. Please try again.";
-                    btn.disabled = false;
-                    btn.textContent = 'Create Account →';
-                });
+            sessionStorage.setItem(SESSION_KEY, "guest");
+            sessionStorage.setItem("sg_name", name);
+            sessionStorage.setItem("sg_mobile", mobile);
+            window.location.href = "choice.html";
         }
 
         function adminLogin() {
