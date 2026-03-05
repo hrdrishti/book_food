@@ -1148,25 +1148,37 @@
             const grid = document.getElementById('menuManageGrid');
             const items = menuCat === 'all' ? menuData : menuData.filter(m => m.cat === menuCat);
             if (!items.length) {
-                grid.innerHTML = '<p class="text-muted" style="padding:2rem;text-align:center;">No items. Click "+ Add Item".</p>'; return;
+                grid.innerHTML = `<p class="text-muted" style="padding:2rem;text-align:center;">No items found. Click "+ Add Item" to start.</p>`;
+                return;
             }
-            grid.innerHTML = items.map(m => `
-                    < div class="manage-card" >
-        <div class="manage-card-title">
-            <span style="font-size:1.3rem;">${m.icon}</span> ${m.name}
-            <span class="veg-badge"
-                style="${m.veg == 'true' || m.veg === true ? 'background:#DCFCE7;color:#166534;' : 'background:#FEE2E2;color:#991b1b;'}">${m.veg
-                    == 'true' || m.veg === true ? 'VEG' : 'NON'}</span>
-        </div>
-        <div class="manage-card-meta">${m.desc || '—'}</div>
-        <div class="manage-card-meta"><strong style="color:var(--amber-dark);">₹${m.price}</strong> · <span
-                style="text-transform:capitalize;">${m.cat}</span> · ID: <code>${m.id}</code></div>
-        <div class="manage-card-actions">
-            <button class="btn-edit-sm" onclick='editMenuItem(${JSON.stringify(m)})'>✏️ Edit</button>
-            <button class="btn-del-sm" onclick="deleteMenuItem('${m.id}','${String(m.name).replace(/'/g, " \\'")}')">🗑
-                Delete</button>
-        </div >
-    </div > `).join('');
+            grid.innerHTML = items.map(m => {
+                const isVeg = m.veg == 'true' || m.veg === true;
+                const vegStyle = isVeg ? 'background:#DCFCE7;color:#166534;' : 'background:#FEE2E2;color:#991B1B;';
+                const vegLabel = isVeg ? 'VEG' : 'NON';
+                return `
+                <div class="manage-card">
+                    <div class="manage-card-title">
+                        <span style="font-size:1.3rem;">${m.icon}</span> ${m.name}
+                        <span class="veg-badge" style="${vegStyle}">${vegLabel}</span>
+                    </div>
+                    <div class="manage-card-meta">${m.desc || '—'}</div>
+                    <div class="manage-card-meta">
+                        <strong style="color:var(--amber-dark);">₹${m.price}</strong> · 
+                        <span style="text-transform:capitalize;">${m.cat}</span> · 
+                        ID: <code>${m.id}</code>
+                    </div>
+                    <div class="manage-card-actions">
+                        <button class="btn-edit-sm" onclick="openEditMenu('${m.id}')">✏️ Edit</button>
+                        <button class="btn-del-sm" onclick="deleteMenuItem('${m.id}','${String(m.name).replace(/'/g, "\\'")}')">🗑 Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Added helper for safer editing
+        function openEditMenu(id) {
+            const item = menuData.find(m => m.id === id);
+            if (item) editMenuItem(item);
         }
         function openMenuModal() {
             document.getElementById('menuForm').reset();
@@ -1239,23 +1251,34 @@
         function renderTablesManage() {
             const grid = document.getElementById('tablesManageGrid');
             if (!tablesData.length) {
-                grid.innerHTML = '<p class="text-muted" style="padding:2rem;text-align:center;">No tables. Click "+ Add Table".</p>'; return;
+                grid.innerHTML = `<p class="text-muted" style="padding:2rem;text-align:center;">No tables found. Click "+ Add Table" to start.</p>`;
+                return;
             }
-            grid.innerHTML = tablesData.map(t => `
-                    < div class="manage-card" >
-        <div class="manage-card-title">
-            <span style="font-size:1.3rem;">${t.icon || '🪑'}</span> ${t.name}
-        </div>
-        <div class="manage-card-meta">Capacity: <strong>${t.cap || t.capacity || 2}</strong></div>
-        <div class="manage-card-meta">Status: <strong
-                style="color:${t.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${t.status ||
-                'Active'}</strong> · ID: <code>${t.id}</code></div>
-        <div class="manage-card-actions">
-            <button class="btn-edit-sm" onclick='editTableItem(${JSON.stringify(t)})'>✏️ Edit</button>
-            <button class="btn-del-sm" onclick="deleteTableItem('${t.id}','${String(t.name).replace(/'/g, " \\'")}')">🗑
-                Delete</button>
-        </div >
-    </div > `).join('');
+            grid.innerHTML = tablesData.map(t => {
+                const isAvail = t.status === 'Available';
+                const statusColor = isAvail ? 'var(--green)' : 'var(--red)';
+                return `
+                <div class="manage-card">
+                    <div class="manage-card-title">
+                        <span style="font-size:1.3rem;">${t.icon || '🪑'}</span> ${t.name}
+                    </div>
+                    <div class="manage-card-meta">Capacity: <strong>${t.cap || t.capacity || 2}</strong></div>
+                    <div class="manage-card-meta">
+                        Status: <strong style="color:${statusColor}">${t.status || 'Active'}</strong> · 
+                        ID: <code>${t.id}</code>
+                    </div>
+                    <div class="manage-card-actions">
+                        <button class="btn-edit-sm" onclick="openEditTable('${t.id}')">✏️ Edit</button>
+                        <button class="btn-del-sm" onclick="deleteTableItem('${t.id}','${String(t.name).replace(/'/g, "\\'")}')">🗑 Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Added helper for safer editing
+        function openEditTable(id) {
+            const table = tablesData.find(t => t.id === id);
+            if (table) editTableItem(table);
         }
         function openTableModal() {
             document.getElementById('tableForm').reset();
@@ -1294,7 +1317,7 @@
                 icon: document.getElementById('tabIcon').value.trim() || '🪑'
             };
             const btn = document.getElementById('tableSaveBtn'); btn.disabled = true; btn.textContent = 'Saving…';
-            fetch(`${SHEET_URL}?action = ${isEdit ? 'updateTable' : 'addTable'}& data=${encodeURIComponent(JSON.stringify(tab))} `)
+            fetch(`${SHEET_URL}?action=${isEdit ? 'updateTable' : 'addTable'}&data=${encodeURIComponent(JSON.stringify(tab))}`)
                 .then(r => r.json()).then(res => {
                     if (res.success) {
                         showToast('Success', isEdit ? 'Table updated!' : 'Table added!'); closeTableModal(); tablesLoaded
@@ -1305,8 +1328,8 @@
                 .finally(() => { btn.disabled = false; btn.textContent = isEdit ? 'Update Table' : 'Save Table'; });
         }
         function deleteTableItem(id, name) {
-            if (!confirm(`Delete table "${name}" ? `)) return;
-            fetch(`${SHEET_URL}?action = deleteTable & id=${encodeURIComponent(id)} `).then(r => r.json())
+            if (!confirm(`Delete table "${name}"?`)) return;
+            fetch(`${SHEET_URL}?action=deleteTable&id=${encodeURIComponent(id)}`).then(r => r.json())
                 .then(res => {
                     if (res.success) {
                         showToast('Deleted', `"${name}" removed.`); tablesLoaded = false;
@@ -1364,7 +1387,7 @@
         function showToast(title, msg, type = 'success') {
             const c = document.getElementById('toastContainer');
             const t = document.createElement('div'); t.className = 'toast ' + type;
-            t.innerHTML = `< h4 > ${title}</h4 > <p>${msg}</p>`;
+            t.innerHTML = `<h4>${title}</h4><p>${msg}</p>`;
             c.appendChild(t);
             setTimeout(() => t.classList.add('show'), 10);
             setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3500);
