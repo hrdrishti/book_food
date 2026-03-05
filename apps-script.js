@@ -1,12 +1,10 @@
-// ============================================================
-//  SPICE GARDEN — Google Apps Script Backend (v2.0)
-//  Deploy as: Web App | Execute as: Me | Access: Anyone
-//  Features: Row-locking, Email Notifications, Data Validation
-// ============================================================
+
 
 /*  ▼▼▼ PASTE YOUR GOOGLE SHEET ID HERE ▼▼▼  */
 var SHEET_ID = "1XfMdle9aWXbIuYWB1Abl6eZGolK8TMbj7vYXNY-oWB0";
 var SHEET_NAME = "Bookings";
+var MENU_SHEET_NAME = "Menu";
+var TABLES_SHEET_NAME = "Tables";
 
 // ============================================================
 //  COLUMN MAPPING & CONFIG
@@ -26,12 +24,15 @@ var HEADERS = [
   "Special Requests", // 11
   "Booking Type",     // 12
   "Status",           // 13
-  "Submitted At"      // 14
+  "Submitted At",     // 14
+  "Subtotal",         // 15
+  "GST",              // 16
+  "Total"             // 17
 ];
 
 var CFG = {
   lockWaitMs: 30000,    // Wait up to 30s for a lock
-  slotDurationMin: 120, // 2 hours
+  slotDurationMin: 60,  // 1 hour
   adminEmail: ""        // Optional: "admin@spicegarden.com"
 };
 
@@ -89,7 +90,10 @@ function doPost(e) {
       data.special,
       data.type || "BOTH",
       "Confirmed",
-      new Date().toLocaleString()
+      new Date().toLocaleString(),
+      Number(data.subtotal) || 0,
+      Number(data.gst) || 0,
+      Number(data.total) || 0
     ];
 
     // 6. Write to Sheet
@@ -189,6 +193,121 @@ function doGet(e) {
       } finally { lock.releaseLock(); }
     }
 
+    /* ---- GET MENU ---- */
+    if (action === "getMenu") {
+      var menuSheet = getMenuSheet();
+      var menuRows = getMenuData(menuSheet);
+      return jsonResponse({ success: true, menu: menuRows });
+    }
+
+    /* ---- ADD MENU ITEM ---- */
+    if (action === "addMenuItem") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var menuSheet = getMenuSheet();
+        var item = JSON.parse(params.data);
+        if (!item.name) return jsonResponse({ success: false, error: "Name is required" });
+
+        // Auto-Generate ID (M1, M2...)
+        var menuRows = getMenuData(menuSheet);
+        var maxIdNum = 0;
+        menuRows.forEach(function (r) {
+          var m = String(r.id).match(/^M(\d+)$/i);
+          if (m) {
+            var n = parseInt(m[1], 10);
+            if (n > maxIdNum) maxIdNum = n;
+          }
+        });
+        var newId = "M" + (maxIdNum + 1);
+
+        menuSheet.appendRow([newId, item.name, item.desc || "", Number(item.price) || 0, item.icon || "🍽️", item.cat || "mains", item.veg === "true" || item.veg === true ? true : false]);
+        return jsonResponse({ success: true, newId: newId });
+      } finally { lock.releaseLock(); }
+    }
+
+    /* ---- UPDATE MENU ITEM ---- */
+    if (action === "updateMenuItem") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var menuSheet = getMenuSheet();
+        var item = JSON.parse(params.data);
+        var rowIdx = getMenuRowById(menuSheet, item.id);
+        if (rowIdx === -1) return jsonResponse({ success: false, error: "Item not found" });
+        menuSheet.getRange(rowIdx, 1, 1, 7).setValues([[item.id, item.name, item.desc || "", Number(item.price) || 0, item.icon || "🍽️", item.cat || "mains", item.veg === "true" || item.veg === true ? true : false]]);
+        return jsonResponse({ success: true });
+      } finally { lock.releaseLock(); }
+    }
+
+    /* ---- DELETE MENU ITEM ---- */
+    if (action === "deleteMenuItem") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var menuSheet = getMenuSheet();
+        var rowIdx = getMenuRowById(menuSheet, params.id);
+        if (rowIdx === -1) return jsonResponse({ success: false, error: "Item not found" });
+        menuSheet.deleteRow(rowIdx);
+        return jsonResponse({ success: true });
+      } finally { lock.releaseLock(); }
+    }
+
+    /* ---- GET TABLES ---- */
+    if (action === "getTables") {
+      var tablesSheet = getTablesSheet();
+      var tablesRows = getTablesData(tablesSheet);
+      return jsonResponse({ success: true, tables: tablesRows });
+    }
+
+    /* ---- ADD TABLE ---- */
+    if (action === "addTable") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var tablesSheet = getTablesSheet();
+        var tbl = JSON.parse(params.data);
+        if (!tbl.name) return jsonResponse({ success: false, error: "Name is required" });
+
+        // Auto-Generate ID (T1, T2...)
+        var tableRows = getTablesData(tablesSheet);
+        var maxIdNum = 0;
+        tableRows.forEach(function (r) {
+          var m = String(r.id).match(/^T(\d+)$/i);
+          if (m) {
+            var n = parseInt(m[1], 10);
+            if (n > maxIdNum) maxIdNum = n;
+          }
+        });
+        var newId = "T" + (maxIdNum + 1);
+
+        tablesSheet.appendRow([newId, tbl.name, Number(tbl.cap) || 2, tbl.icon || "🪑"]);
+        return jsonResponse({ success: true, newId: newId });
+      } finally { lock.releaseLock(); }
+    }
+
+    /* ---- UPDATE TABLE ---- */
+    if (action === "updateTable") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var tablesSheet = getTablesSheet();
+        var tbl = JSON.parse(params.data);
+        var rowIdx = getTableRowById(tablesSheet, String(tbl.id).trim());
+        if (rowIdx === -1) return jsonResponse({ success: false, error: "Table not found" });
+        tablesSheet.getRange(rowIdx, 1, 1, 4).setValues([[String(tbl.id).trim(), tbl.name, Number(tbl.cap) || 2, tbl.icon || "🪑"]]);
+        return jsonResponse({ success: true });
+      } finally { lock.releaseLock(); }
+    }
+
+    /* ---- DELETE TABLE ---- */
+    if (action === "deleteTable") {
+      if (!lock.tryLock(10000)) return jsonResponse({ success: false, error: "Busy" });
+      try {
+        var tablesSheet = getTablesSheet();
+        var rowIdx = getTableRowById(tablesSheet, params.id);
+        if (rowIdx === -1) return jsonResponse({ success: false, error: "Table not found" });
+        tablesSheet.deleteRow(rowIdx);
+        return jsonResponse({ success: true });
+      } finally { lock.releaseLock(); }
+    }
+
+
     /* ---- READ Operations (No Lock needed) ---- */
     var rows = getData(sheet);
     var nowT = params.time || getCurrentTimeString();
@@ -236,15 +355,104 @@ function doGet(e) {
 function getSheet() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
-  if (sheet.getLastRow() === 0) {
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
     sheet.appendRow(HEADERS);
     sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#F0F4F8");
+    return sheet;
   }
+  // Auto-add any missing header columns (e.g. Subtotal/GST/Total added in v2)
+  var existingHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    : [];
+  HEADERS.forEach(function (h) {
+    if (existingHeaders.indexOf(h) === -1) {
+      var col = existingHeaders.length + 1;
+      sheet.getRange(1, col).setValue(h).setFontWeight("bold").setBackground("#F0F4F8");
+      existingHeaders.push(h);
+    }
+  });
   return sheet;
 }
 
 /* ---- Users Sheet helpers ---- */
 var USER_HEADERS = ["Name", "Mobile", "Password", "Created At"];
+
+/* ---- Menu Sheet helpers ---- */
+var MENU_HEADERS = ["id", "name", "desc", "price", "icon", "cat", "veg"];
+
+function getMenuSheet() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(MENU_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MENU_SHEET_NAME);
+    sheet.appendRow(MENU_HEADERS);
+    sheet.getRange(1, 1, 1, MENU_HEADERS.length).setFontWeight("bold").setBackground("#FFF3E0");
+  }
+  return sheet;
+}
+
+function getMenuData(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, MENU_HEADERS.length).getValues();
+  return data.map(function (row) {
+    var obj = {};
+    MENU_HEADERS.forEach(function (h, i) { obj[h] = row[i]; });
+    // Normalize veg field: TRUE/"true"/1 → true
+    obj["veg"] = (String(obj["veg"]).toLowerCase() === "true" || obj["veg"] === 1 || obj["veg"] === true);
+    obj["price"] = Number(obj["price"]) || 0;
+    return obj;
+  }).filter(function (r) { return r["id"] && r["name"]; });
+}
+
+/* ---- Tables Sheet helpers ---- */
+var TABLES_HEADERS = ["id", "name", "cap", "icon"];
+
+function getTablesSheet() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName(TABLES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(TABLES_SHEET_NAME);
+    sheet.appendRow(TABLES_HEADERS);
+    sheet.getRange(1, 1, 1, TABLES_HEADERS.length).setFontWeight("bold").setBackground("#E3F2FD");
+  }
+  return sheet;
+}
+
+function getTablesData(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, TABLES_HEADERS.length).getValues();
+  return data.map(function (row) {
+    var obj = {};
+    TABLES_HEADERS.forEach(function (h, i) { obj[h] = row[i]; });
+    // Keep ID as string to allow "T1", "T2" etc.
+    obj["id"] = String(obj["id"]).trim();
+    obj["cap"] = Number(obj["cap"]) || 2;
+    return obj;
+  }).filter(function (r) { return r["id"] && r["name"]; });
+}
+
+function getMenuRowById(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i]) === String(id)) return i + 2;
+  }
+  return -1;
+}
+
+function getTableRowById(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues().flat();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i]) === String(id)) return i + 2;
+  }
+  return -1;
+}
 
 function getUserSheet() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
